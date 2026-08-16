@@ -1,0 +1,22 @@
+# root .gitignore
+node_modules/
+.env
+.env.local
+.next/
+dist/
+build/
+file-transfer-final/
+
+#env variables
+.env
+.env.local
+
+#next.js
+/.next/
+/out/
+
+.DS_Store
+
+#logs
+*.log
+npm-debug.log*
