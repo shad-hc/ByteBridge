@@ -1,14 +1,13 @@
-export type SocketId = string;
-
-export const socketMsgCount: Record<SocketId, { count: number; resetAt: number }> = {};
+export type ClientId = string;
+export const msgCount: Record<string, { count: number; resetAt: number }> = {};
 const MAX_MESSAGES = 30;
 const RATE_LIMIT_WINDOW_MS = 1000; 
 
-export default function isRateLimited(socketId: SocketId): boolean {
+export default function isRateLimited(ClientId : ClientId): boolean {
   const now = Date.now();
-  const entry = socketMsgCount[socketId];
+  const entry = msgCount[ClientId];
   if (!entry || now > entry.resetAt) {
-    socketMsgCount[socketId] = {
+    msgCount[ClientId] = {
       count: 1,
       resetAt: now + RATE_LIMIT_WINDOW_MS,
     };
