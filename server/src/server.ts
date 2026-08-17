@@ -1,6 +1,7 @@
 import express from "express";
 import http from "http";
 import { WebSocketServer, WebSocket, RawData } from "ws";
+
 import type { ClientToServerMssg,ServerToClientMssg } from "./types/index"
 import type { ClientId } from "./utils/rate-limitter";
 import isRateLimited,{ msgCount } from "./utils/rate-limitter";
@@ -100,10 +101,13 @@ function handleJoinRoom(
   msg: Extract<ClientToServerMssg, { type: "join-room" }>,
 ): void {
   const { roomId, clientId } = msg;
+  //check valid roomId
   if (typeof roomId !== "string" || roomId.length < 1 || roomId.length > 64) {
     logRejection("join-room", clientId, "invalid roomId");
     return;
   }
+
+  //check valid clientId
   if (typeof clientId !== "string" || clientId.length < 1 || clientId.length > 100) {
     logRejection("join-room", "unknown", "invalid clientId");
     return;
@@ -143,6 +147,75 @@ function handleJoinRoom(
 }
 
 
+function handleSendingSignal(clientId: ClientId,
+  msg: Extract<ClientToServerMssg, { type: "sending-signal" }>
+): void {
+  if (typeof msg.userToSignal !== "string" || !msg.signal) {
+    logRejection("sending-signal", clientId, "malformed payload");
+    return;
+  }
+
+
+  const roomId = clientIdToRoomId[clientId];
+  if (!roomId || !roomIdToClients[roomId]?.includes(msg.userToSignal)) {
+    logRejection("sending-signal", clientId, "target not in same room");
+    return;
+  }
+
+  if (JSON.stringify(msg.signal).length > 65536) {
+    logRejection("sending-signal", clientId, "signal payload too large");
+    return;
+  }
+
+  sendToClient(msg.userToSignal, {
+    type: "user-joined",
+    signal: msg.signal,
+    callerID: clientId, // use verified server-side id, not anything client-claimed
+  });
+}
+
+function handleReturningSignal(
+  clientId: ClientId,
+  msg: Extract<ClientToServerMssg, { type: "returning-signal" }>,
+): void {
+  if (typeof msg.callerID !== "string" || !msg.signal) {
+    logRejection("returning-signal", clientId, "malformed payload");
+    return;
+  }
+  const roomId = clientIdToRoomId[clientId];
+  if (!roomId || !roomIdToClients[roomId]?.includes(msg.callerID)) {
+    logRejection("returning-signal", clientId, "caller not in same room");
+    return;
+  }
+  if (JSON.stringify(msg.signal).length > 65536) {
+    logRejection("returning-signal", clientId, "signal payload too large");
+    return;
+  }
+
+  sendToClient(msg.callerID, {
+    type: "receiving-returned-signal",
+    signal: msg.signal,
+    id: clientId,
+  });
+}
+function removeClient(clientId: ClientId): void {
+  const roomId = clientIdToRoomId[clientId];
+  if (roomId) {
+    const remaining = (roomIdToClients[roomId] || []).filter(
+      (id) => id !== clientId,
+    );
+    if (remaining.length === 0) {
+      delete roomIdToClients[roomId];
+      delete roomCreatedAt[roomId];
+    } else {
+      roomIdToClients[roomId] = remaining;
+    }
+    sendToRoom(roomId, clientId, { type: "user-left", id: clientId });
+  }
+  delete clientIdToRoomId[clientId];
+  delete clientIdToSocket[clientId];
+  delete msgCount[clientId];
+}
 
 wss.on("connection", (ws) => {
   ws.on("message", (raw: RawData) => {
@@ -171,6 +244,12 @@ wss.on("connection", (ws) => {
       case "join-room":
         handleJoinRoom(ws, msg);
         break;
+      case "sending-signal":
+        handleSendingSignal(clientId, msg);
+        break;
+      case "returning-signal":
+        handleReturningSignal(clientId, msg);
+        break;
     }
   });
 
@@ -181,9 +260,11 @@ wss.on("connection", (ws) => {
 
     pendingRemoval[clientId] = setTimeout(() => {
       delete pendingRemoval[clientId];
+      removeClient(clientId);
     }, GRACE_PERIOD_MS);
   });
 });
+
 
 const PORT = process.env.PORT || 8000;
 server.listen(PORT, () => {
