@@ -15,8 +15,10 @@ file-transfer-final/
 /.next/
 /out/
 
+#miscllaneous
 .DS_Store
 
 #logs
 *.log
 npm-debug.log*
+
