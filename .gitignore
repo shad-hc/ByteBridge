@@ -22,3 +22,5 @@ file-transfer-final/
 *.log
 npm-debug.log*
 
+#ts-builds
+*.buildinfo
