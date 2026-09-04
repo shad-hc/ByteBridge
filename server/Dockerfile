@@ -7,7 +7,9 @@ COPY package.json package-lock.json ./
 
 RUN npm ci
 
-COPY server.ts tsconfig.json ./
+COPY tsconfig.json ./
+
+COPY src ./src
 
 RUN npx tsc
 
