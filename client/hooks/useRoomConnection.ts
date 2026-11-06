@@ -16,7 +16,8 @@ export type ConnectionStatus =
   | "waiting"
   | "connecting"
   | "connected"
-  | "disconnected";
+  | "disconnected"
+  | "unreachable";
 
 
 const RECONNECT_GRACE_MS = 6000;
@@ -60,6 +61,13 @@ export function useRoomConnection(
 
     async function handleConnectionProblem() {
       if (reconnectingRef.current) return;
+
+      // Signaling is down, so no new offer can get through. Rejoining after the
+      // socket reopens re-establishes the peer connection.
+      if (!socket.isOpen) {
+        updateStatus("unreachable");
+        return;
+      }
 
       if (isInitiatorRef.current && peerIdRef.current) {
         reconnectingRef.current = true;
@@ -153,15 +161,7 @@ export function useRoomConnection(
  
     socket.onClose = () => {
       const stillConnected = getConnection()?.dataChannel?.readyState === "open";
-      if (!stillConnected) updateStatus("connecting");
-    };
-
-    socket.onGiveUp = () => {
-      const stillConnected = getConnection()?.dataChannel?.readyState === "open";
-      if (!stillConnected) {
-        updateStatus("disconnected");
-        destroyConnection();
-      }
+      if (!stillConnected) updateStatus("unreachable");
     };
 
     socket.connect();
@@ -170,7 +170,6 @@ export function useRoomConnection(
       socket.onMessage = null;
       socket.onOpen = null;
       socket.onClose = null;
-      socket.onGiveUp = null;
       worker.terminate();
       disconnectSignalingSocket();
       destroyConnection();

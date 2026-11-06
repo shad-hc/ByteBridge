@@ -85,6 +85,7 @@ export default function ShareClient({ roomId }: { roomId: string }) {
     connecting: { color: "bg-blue-400 animate-pulse", label: "Connecting..." },
     connected: { color: "bg-green-500", label: "Connected" },
     disconnected: { color: "bg-red-500", label: "Disconnected" },
+    unreachable: { color: "bg-amber-400 animate-pulse", label: "Server unreachable" },
   }[connectionStatus];
 
   const renderOverlay = () => {
@@ -141,6 +142,31 @@ export default function ShareClient({ roomId }: { roomId: string }) {
             >
               <Copy className="w-3.5 h-3.5" />
             </button>
+          </div>
+        </motion.div>
+      );
+    }
+
+    if (connectionStatus === "unreachable") {
+      return (
+        <motion.div
+          key="unreachable"
+          initial={{ opacity: 0, scale: 0.97 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.97 }}
+          className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-2xl bg-card/95 backdrop-blur-sm border border-amber-400/20 gap-5 p-8 text-center"
+        >
+          <div className="w-14 h-14 rounded-full bg-amber-400/10 border border-amber-400/30 flex items-center justify-center">
+            <WifiOff className="w-6 h-6 text-amber-400" />
+          </div>
+          <div>
+            <p className="text-foreground font-medium text-lg mb-1">
+              Can&apos;t reach the server
+            </p>
+            <p className="text-muted-foreground text-sm">
+              Retrying automatically. This page will update as soon as the
+              server is back.
+            </p>
           </div>
         </motion.div>
       );
@@ -502,9 +528,11 @@ export default function ShareClient({ roomId }: { roomId: string }) {
                       ? "Waiting for someone to join..."
                       : connectionStatus === "disconnected"
                         ? "Connection lost"
-                        : connectionStatus === "connecting"
-                          ? "Connecting..."
-                          : "Type your message... (Enter to send)"
+                        : connectionStatus === "unreachable"
+                          ? "Server unreachable"
+                          : connectionStatus === "connecting"
+                            ? "Connecting..."
+                            : "Type your message... (Enter to send)"
                   }
                   rows={2}
                   className="flex-1 bg-background rounded-xl px-4 py-3 text-[0.9375rem] text-foreground placeholder:text-muted-foreground resize-none outline-none border border-border focus:border-primary/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
