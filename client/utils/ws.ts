@@ -3,8 +3,8 @@ import type { ClientToServerMessage,ServerToClientMessage } from "@/types/signal
 
 const url = process.env.NEXT_SIGNALING_URL || "ws://localhost:8000";
 
-const MAX_RECONNECT_ATTEMPTS = 5;
 const RECONNECT_DELAY_MS = 1000; // 1s
+const MAX_RECONNECT_DELAY_MS = 5000; // 5s
 
 export class SignalingSocket {
   readonly clientId = crypto.randomUUID();
@@ -12,6 +12,7 @@ export class SignalingSocket {
   private ws: WebSocket | null = null;
   private attempts = 0;
   private intentionalClose = false;
+  private retryTimer: ReturnType<typeof setTimeout> | null = null;
 
 
   private queue: ClientToServerMessage[] = [];
@@ -19,10 +20,13 @@ export class SignalingSocket {
   onOpen: (() => void) | null = null;
   onMessage: ((msg: ServerToClientMessage) => void) | null = null;
   onClose: (() => void) | null = null;
-  onGiveUp: (() => void) | null = null;
 
   constructor(url: string) {
     this.url = url;
+  }
+
+  get isOpen(): boolean {
+    return this.ws?.readyState === WebSocket.OPEN;
   }
 
   connect() {
@@ -47,13 +51,15 @@ export class SignalingSocket {
 
     ws.onclose = () => {
       if (this.intentionalClose) return;
-      if (this.attempts >= MAX_RECONNECT_ATTEMPTS) {
-        this.onGiveUp?.();
-        return;
-      }
+      // Keep retrying for as long as the page is open, so a room recovers on
+      // its own once the server is back.
+      const delay = Math.min(
+        RECONNECT_DELAY_MS * 2 ** this.attempts,
+        MAX_RECONNECT_DELAY_MS,
+      );
       this.attempts++;
       this.onClose?.();
-      setTimeout(() => this.connect(), RECONNECT_DELAY_MS);
+      this.retryTimer = setTimeout(() => this.connect(), delay);
     };
   }
 
@@ -73,6 +79,8 @@ export class SignalingSocket {
 
   close() {
     this.intentionalClose = true;
+    if (this.retryTimer) clearTimeout(this.retryTimer);
+    this.retryTimer = null;
     this.ws?.close();
     this.ws = null;
   }
