@@ -22,7 +22,11 @@ import {
   disconnectRedis,
 } from "./utils/redis";
 
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "http://localhost:3000";
+// Comma-separated list of allowed client origins, or "*" to allow any.
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGIN || "http://localhost:3000")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
 
 const app = express();
 const server = http.createServer(app);
@@ -31,7 +35,13 @@ const wss = new WebSocketServer({ server });
 
 // Allow the client origin to read these routes cross-origin.
 app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
+  const origin = req.headers.origin;
+  if (ALLOWED_ORIGINS.includes("*")) {
+    res.header("Access-Control-Allow-Origin", "*");
+  } else if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+    res.header("Vary", "Origin");
+  }
   next();
 });
 
@@ -43,8 +53,13 @@ app.get("/health", (req, res) => {
 });
 
 app.get("/room/:roomId", async (req, res) => {
-  const count = await getRoomSize(req.params.roomId);
-  res.json({ exists: count > 0 });
+  try {
+    const count = await getRoomSize(req.params.roomId);
+    res.json({ exists: count > 0 });
+  } catch (err) {
+    console.error("room lookup error:", err);
+    res.status(503).json({ error: "room lookup unavailable" });
+  }
 });
 
 type RoomId = string;

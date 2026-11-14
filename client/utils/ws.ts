@@ -1,7 +1,7 @@
 import type { ClientToServerMessage,ServerToClientMessage } from "@/types/signaling"; 
 
 
-const url = process.env.NEXT_SIGNALING_URL || "ws://localhost:8000";
+import { getSignalingWsUrl } from "@/utils/signalingUrl";
 
 const RECONNECT_DELAY_MS = 1000; // 1s
 const MAX_RECONNECT_DELAY_MS = 5000; // 5s
@@ -90,8 +90,7 @@ let socket: SignalingSocket | null = null;
 
 export function getSignalingSocket(): SignalingSocket {
   if (!socket) {
-    const url = process.env.NEXT_PUBLIC_SIGNALING_URL || "ws://localhost:8000";
-    socket = new SignalingSocket(url);
+    socket = new SignalingSocket(getSignalingWsUrl());
   }
   return socket;
 }

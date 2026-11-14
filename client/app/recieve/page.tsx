@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import { getSignalingHttpUrl } from "@/utils/signalingUrl";
 
 
 export default function ReceivePage() {
@@ -15,10 +16,11 @@ export default function ReceivePage() {
   async function handleJoin() {
     if (roomId.length !== 6 || checking) return;
     setChecking(true);
-    const base =
-      process.env.NEXT_PUBLIC_SIGNALING_URL || "http://localhost:8000";
     try {
-      const res = await fetch(`${base}/room/${roomId}`);
+      const res = await fetch(
+        `${getSignalingHttpUrl()}/room/${encodeURIComponent(roomId)}`,
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as { exists: boolean };
       if (!data.exists) {
         toast.error("No active session found for that code");
