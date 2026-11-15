@@ -15,8 +15,9 @@ export default function ReceivePage() {
   async function handleJoin() {
     if (roomId.length !== 6 || checking) return;
     setChecking(true);
-    const base =
+    let base =
       process.env.NEXT_PUBLIC_SIGNALING_URL || "http://localhost:8000";
+    if (base.startsWith("ws")) base = "http" + base.slice(2);
     try {
       const res = await fetch(`${base}/room/${roomId}`);
       const data = (await res.json()) as { exists: boolean };
