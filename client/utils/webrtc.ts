@@ -91,6 +91,10 @@ export class WebRTCConnection {
   }
 
   close() {
+    this.onConnect = null;
+    this.onClose = null;
+    this.onError = null;
+    this.onData = null;
     this.channel?.close();
     this.pc.close();
   }

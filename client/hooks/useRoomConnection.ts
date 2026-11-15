@@ -148,6 +148,7 @@ export function useRoomConnection(
           break;
         case "user-left":
           reconnectingRef.current = false;
+          peerIdRef.current = null;
           destroyConnection();
           updateStatus("disconnected");
           break;

@@ -1,13 +1,26 @@
 import type { ClientToServerMessage,ServerToClientMessage } from "@/types/signaling"; 
 
 
-const url = process.env.NEXT_SIGNALING_URL || "ws://localhost:8000";
-
 const RECONNECT_DELAY_MS = 1000; // 1s
 const MAX_RECONNECT_DELAY_MS = 5000; // 5s
 
+const CLIENT_ID_KEY = "client_id_key";
+
+function getOrCreateClientId(): string {
+  try {
+    const existing = sessionStorage.getItem(CLIENT_ID_KEY);
+    if (existing) return existing;
+    const id = crypto.randomUUID();
+    sessionStorage.setItem(CLIENT_ID_KEY, id);
+    return id;
+  } catch {
+    // Storage blocked (private mode, sandboxed iframe): fall back to a fresh id.
+    return crypto.randomUUID();
+  }
+}
+
 export class SignalingSocket {
-  readonly clientId = crypto.randomUUID();
+  readonly clientId = getOrCreateClientId();
   private url: string;
   private ws: WebSocket | null = null;
   private attempts = 0;
